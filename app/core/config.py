@@ -24,6 +24,15 @@ class Settings(BaseSettings):
     MSG91_OTP_LENGTH: int = 6
     MSG91_BASE_URL: str = "https://control.msg91.com/api/v5"
 
+    # ------------------------------- OCR service ------------------------------ #
+    # Form 16 extraction is delegated to the standalone OCR service (the `OCR-`
+    # FastAPI app that runs YOLO + Tesseract + form16-parser). This backend
+    # proxies the uploaded PDF to `${OCR_BASE_URL}/api/parse_form16`, normalizes
+    # the response, and persists it — the heavy ML never runs in this process.
+    OCR_BASE_URL: str = "https://ocr.itaxeasy.com"
+    OCR_API_TOKEN: str = ""  # optional bearer for the OCR service (blank = none)
+    OCR_TIMEOUT_SECONDS: float = 120.0  # parsing a scanned PDF can be slow
+
     # ----------------------------- Test OTP bypass ---------------------------- #
     # For testing without sending a real SMS (e.g. when DLT isn't set up). When
     # enabled, listed phones skip MSG91 entirely: /otp/send is a no-op and

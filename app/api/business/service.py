@@ -80,7 +80,6 @@ class BusinessService:
         business = Business(
             userId=user.id,
             name=data.name.strip(),
-            tradeName=data.tradeName,
             pan=data.pan,
             gstin=data.gstin,
             stateCode=data.stateCode,
@@ -136,7 +135,7 @@ class BusinessService:
             _validate_for_active(new_name, new_pan, new_state)
 
         for field in (
-            "name", "tradeName", "pan", "gstin", "stateCode",
+            "name", "pan", "gstin", "stateCode",
             "address", "city", "pincode",
             "country", "currency", "fyStartMonth", "status",
         ):

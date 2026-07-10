@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.api.auth.router import router as auth_router
 from app.api.business.router import router as business_router
+from app.api.form16.router import router as form16_router
 
 
 app = FastAPI(
@@ -23,6 +24,7 @@ app.add_middleware(
 # Register routers
 app.include_router(auth_router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(business_router, prefix="/api/business", tags=["Business"])
+app.include_router(form16_router, prefix="/api/form16", tags=["Form 16"])
 
 
 @app.get("/")

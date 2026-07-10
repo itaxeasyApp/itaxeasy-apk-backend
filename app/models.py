@@ -9,7 +9,9 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -76,6 +78,9 @@ class User(Base):
     )
     businesses = relationship(
         "Business", back_populates="owner", cascade="all, delete-orphan"
+    )
+    form16_imports = relationship(
+        "Form16Import", back_populates="user", cascade="all, delete-orphan"
     )
 
     def __repr__(self):
@@ -157,8 +162,7 @@ class Business(Base):
     )
 
     # SRS Module 3 fields
-    name = Column(String, nullable=False)  # Business Name (required)
-    tradeName = Column(String, nullable=True)  # Trade Name (optional)
+    name = Column(String, nullable=False)  # Trade Name (required)
     pan = Column(String, nullable=True)  # required when status=active (validated in schema)
     gstin = Column(String, nullable=True)  # GSTIN (optional)
     stateCode = Column(String, nullable=True)  # State (required when active)
@@ -228,6 +232,50 @@ class BusinessSettings(Base):
         return (
             f"<BusinessSettings businessId={self.businessId} "
             f"inventory={self.inventoryEnabled} gst={self.gstRegistered}>"
+        )
+
+
+class Form16Import(Base):
+    """
+    A user's extracted Form 16, one row per (user, assessment year).
+
+    The uploaded PDF is proxied to the OCR service, normalized, and upserted here.
+    Re-uploading the same assessment year updates the existing row. The original
+    PDF is NOT stored. Rather than exploding every field into its own column, the
+    whole normalized Form 16 is kept as a JSON blob (`data`), with the full raw
+    OCR response in `rawOcr` so fields can be re-mapped later without re-uploading.
+    Only `userId` + `assessmentYear` are real columns — they form the upsert key.
+    """
+
+    __tablename__ = "form16_imports"
+    __table_args__ = (
+        # One row per employer per assessment year (a taxpayer can have several
+        # employers in a year → several Form 16s for the same AY).
+        UniqueConstraint(
+            "userId", "assessmentYear", "employerTan", name="uq_form16_user_ay_tan"
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    createdAt = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updatedAt = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+    userId = Column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    assessmentYear = Column(String, nullable=False)  # e.g. "2025-26"
+    employerTan = Column(String, nullable=True)  # deductor TAN — part of the upsert key
+
+    data = Column(JSONB, nullable=False)  # normalized Form 16 fields (Form16Data)
+    rawOcr = Column(JSONB, nullable=True)  # full raw OCR response for re-mapping
+
+    user = relationship("User", back_populates="form16_imports")
+
+    def __repr__(self):
+        return (
+            f"<Form16Import id={self.id} userId={self.userId} "
+            f"ay={self.assessmentYear} tan={self.employerTan}>"
         )
 
 

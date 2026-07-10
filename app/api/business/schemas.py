@@ -44,7 +44,6 @@ class BusinessResponse(BaseModel):
     updatedAt: datetime
     userId: int
     name: str
-    tradeName: Optional[str] = None
     pan: Optional[str] = None
     gstin: Optional[str] = None
     stateCode: Optional[str] = None
@@ -63,8 +62,7 @@ class BusinessResponse(BaseModel):
 
 
 class BusinessCreateRequest(BaseModel):
-    name: str = Field(..., min_length=1, description="Business Name (required)")
-    tradeName: Optional[str] = None
+    name: str = Field(..., min_length=1, description="Trade Name (required)")
     pan: Optional[str] = None
     gstin: Optional[str] = None
     stateCode: Optional[str] = None
@@ -80,7 +78,6 @@ class BusinessCreateRequest(BaseModel):
 
 class BusinessUpdateRequest(BaseModel):
     name: Optional[str] = Field(default=None, min_length=1)
-    tradeName: Optional[str] = None
     pan: Optional[str] = None
     gstin: Optional[str] = None
     stateCode: Optional[str] = None
