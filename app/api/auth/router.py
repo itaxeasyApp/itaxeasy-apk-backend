@@ -89,6 +89,22 @@ async def otp_verify(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Either accessToken or phone + otp must be provided.",
             )
+        # MSG91's SMS OTP is single-use, so don't burn it on a request that
+        # authenticate_with_phone will reject anyway: a brand-new phone must
+        # register WITH a full name. Check that BEFORE consuming the code, so
+        # the app can collect the name and retry verify with the SAME still
+        # -valid OTP. (The check in authenticate_with_phone remains the
+        # authoritative guard for the test-phone and widget-token paths.)
+        existing = await AuthService.get_user_by_phone(
+            db, "+" + msg91.normalize_mobile(payload.phone)
+        )
+        if existing is None and (
+            not payload.fullName or len(payload.fullName.strip()) < 3
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Full name (min 3 characters) is required to register.",
+            )
         try:
             await msg91.verify_otp(payload.phone, payload.otp)
             verified_phone = payload.phone
