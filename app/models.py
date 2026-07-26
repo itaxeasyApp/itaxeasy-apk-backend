@@ -69,6 +69,13 @@ class User(Base):
     verified = Column(Boolean, default=True, nullable=False)  # Phone verified via Firebase
     userType = Column(Enum(UserType), default=UserType.normal, nullable=False)
 
+    # Personal KYC (OCR-scanned from PAN / Aadhaar) — all optional.
+    panNumber = Column(String, nullable=True)      # PAN, uppercased ABCDE1234F
+    aadhaarNumber = Column(String, nullable=True)  # 12 digits, no spaces
+    fatherName = Column(String, nullable=True)     # from PAN
+    dob = Column(String, nullable=True)            # ISO YYYY-MM-DD
+    address = Column(Text, nullable=True)          # from Aadhaar (multiline)
+
     # Relationships
     sessions = relationship(
         "UserSession", back_populates="user", cascade="all, delete-orphan"

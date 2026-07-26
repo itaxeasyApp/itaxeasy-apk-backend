@@ -211,7 +211,19 @@ class AuthService:
                     detail="Email address already in use.",
                 )
 
-        for field in ("fullName", "email", "profilePhoto", "timeZone", "language", "gender"):
+        for field in (
+            "fullName",
+            "email",
+            "profilePhoto",
+            "timeZone",
+            "language",
+            "gender",
+            "panNumber",
+            "aadhaarNumber",
+            "fatherName",
+            "dob",
+            "address",
+        ):
             value = getattr(data, field)
             if value is not None:
                 setattr(user, field, value)
