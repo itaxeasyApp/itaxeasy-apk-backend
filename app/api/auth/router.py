@@ -28,12 +28,23 @@ def _client_ip(request: Request) -> str | None:
 
 @router.post("/otp/send", status_code=status.HTTP_200_OK)
 async def otp_send(payload: OtpSendRequest):
-    """Have MSG91 generate and SMS an OTP to the given phone number."""
+    """
+    Have MSG91 SMS an OTP to the given phone number.
+
+    Prefers the SendOTP widget, which is the only route that actually delivers: the
+    plain /api/v5/otp API sends under our own DLT header and the operators pause it
+    with error 211 until the Entity/PE ID is mapped to `quarki` in the MSG91 panel.
+    Falls back to that API when no widget is configured, so an install without widget
+    credentials behaves exactly as before rather than failing outright.
+    """
     # Test bypass: don't hit MSG91, the fixed TEST_OTP_CODE will be accepted.
     if settings.is_test_phone(payload.phone):
         return {"success": True, "message": "Test OTP active (no SMS sent)."}
     try:
-        await msg91.send_otp(payload.phone)
+        if settings.widget_configured:
+            await msg91.send_widget_otp(payload.phone)
+        else:
+            await msg91.send_otp(payload.phone)
     except msg91.Msg91Error as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
@@ -44,9 +55,21 @@ async def otp_send(payload: OtpSendRequest):
 
 @router.post("/otp/resend", status_code=status.HTTP_200_OK)
 async def otp_resend(payload: OtpSendRequest):
-    """Re-trigger delivery of the active OTP via MSG91."""
+    """
+    Re-trigger delivery of the active OTP.
+
+    On the widget route a fresh send is the resend: it opens a new reqId and replaces
+    the cached one, which is simpler than driving the widget's retry endpoint and
+    behaves identically from the caller's side.
+    """
+    # Mirror /otp/send: a test phone has no MSG91 request to resend.
+    if settings.is_test_phone(payload.phone):
+        return {"success": True, "message": "Test OTP active (no SMS sent)."}
     try:
-        await msg91.resend_otp(payload.phone)
+        if settings.widget_configured:
+            await msg91.send_widget_otp(payload.phone)
+        else:
+            await msg91.resend_otp(payload.phone)
     except msg91.Msg91Error as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
@@ -106,7 +129,10 @@ async def otp_verify(
                 detail="Full name (min 3 characters) is required to register.",
             )
         try:
-            await msg91.verify_otp(payload.phone, payload.otp)
+            if settings.widget_configured:
+                await msg91.verify_widget_otp(payload.phone, payload.otp)
+            else:
+                await msg91.verify_otp(payload.phone, payload.otp)
             verified_phone = payload.phone
         except msg91.Msg91Error:
             # Wrong / expired code → 400 so the app shows "request a new OTP".
