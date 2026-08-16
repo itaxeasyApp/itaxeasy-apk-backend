@@ -24,6 +24,25 @@ class Settings(BaseSettings):
     MSG91_OTP_LENGTH: int = 6
     MSG91_BASE_URL: str = "https://control.msg91.com/api/v5"
 
+    # ------------------------- MSG91 SendOTP Widget --------------------------- #
+    # The route that actually delivers. The widget sends under MSG91's own DLT
+    # entity, so it works while the direct /api/v5/otp route above is paused by DLT
+    # error 211 -- our header `quarki` has no Entity/PE ID mapped to it in the MSG91
+    # panel, and until someone completes that registration nothing sent under our own
+    # identity reaches an operator. itaxeasy-app has used this widget in production
+    # all along (36 sent / 32 verified); the APK backend was the odd one out.
+    #
+    # The widget must have "Widget Integration" set to `web` in the MSG91 panel --
+    # a Mobile-only widget answers server calls with "Web requests are not allowed
+    # for this widget". `itaxeasy` (3365796d4861303933383731) is Mobile and serves
+    # the React Native app; do not repoint it. This backend uses `itaxeasyByAvi`.
+    MSG91_WIDGET_ID: str = ""
+    MSG91_WIDGET_TOKEN: str = ""
+
+    @property
+    def widget_configured(self) -> bool:
+        return bool(self.MSG91_WIDGET_ID and self.MSG91_WIDGET_TOKEN)
+
     # ------------------------------- OCR service ------------------------------ #
     # Form 16 extraction is delegated to the standalone OCR service (the `OCR-`
     # FastAPI app that runs YOLO + Tesseract + form16-parser). This backend
