@@ -2,7 +2,7 @@
 #
 # iTaxEasy APK Backend — local dev environment (modeled on vm-api/dev_start.sh).
 # Brings up Docker (Postgres + Redis), waits for health, runs the LATEST Alembic
-# migrations, then starts the FastAPI server on :54110.
+# migrations, then starts the FastAPI server on :3002.
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -23,7 +23,7 @@ cd "$SCRIPT_DIR" || exit 1
 
 COMPOSE_FILE="docker-compose.dev.yml"
 PG_CONTAINER="itaxeasy-apk-postgres"
-APP_PORT=54110
+APP_PORT=3002
 
 # ── Step 1: Python + Poetry ───────────────────────────────────────────────
 echo -e "${YELLOW}[1/5] Checking Python & Poetry...${NC}"

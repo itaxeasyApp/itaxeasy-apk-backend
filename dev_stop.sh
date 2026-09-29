@@ -20,8 +20,8 @@ docker compose -f docker-compose.dev.yml down
 echo ""
 echo -e "${YELLOW}Killing processes on development ports...${NC}"
 
-# 54110 = FastAPI, 5432 = Postgres, 54332 = Redis
-PORTS=(54110 5432 54332)
+# 3002 = FastAPI, 5432 = Postgres, 54332 = Redis
+PORTS=(3002 5432 54332)
 for port in "${PORTS[@]}"; do
     if lsof -i :$port -t > /dev/null 2>&1; then
         echo "Killing processes on port $port..."

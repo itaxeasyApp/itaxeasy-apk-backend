@@ -7,7 +7,7 @@
 #
 # Networking: the container joins the shared Docker network "itaxeasy" (created once for the
 # itaxeasy frontend/backend: docker network create --subnet 172.30.10.0/24 --gateway
-# 172.30.10.1 itaxeasy) and publishes PORT from .env (default 54110; shown in `docker ps`).
+# 172.30.10.1 itaxeasy) and publishes PORT from .env (default 3002 as on server1; production sets PORT=54110; shown in `docker ps`).
 # It reaches the server's own Postgres at host.docker.internal (= 172.30.10.1), so in .env:
 # DATABASE_URL=postgresql://itaxeasy_apk_user:...@host.docker.internal:5432/itaxeasy_apk
 # and pg_hba.conf must allow itaxeasy_apk_user from 172.30.10.0/24.
@@ -22,7 +22,7 @@ services:
     container_name: itaxeasy-apk-api
     restart: always
     ports:
-      - "${PORT:-54110}:${PORT:-54110}"
+      - "${PORT:-3002}:${PORT:-3002}"
     networks:
       - itaxeasy
     extra_hosts:
@@ -40,7 +40,7 @@ services:
       HOME: /tmp # $HOME writes go to the container's temp folder too
     healthcheck:
       # GET / returns {"status":"healthy"}
-      test: ["CMD", "python", "-c", "import os,sys,urllib.request; r=urllib.request.urlopen('http://127.0.0.1:'+os.environ.get('PORT','54110')+'/', timeout=4); sys.exit(0 if r.status==200 else 1)"]
+      test: ["CMD", "python", "-c", "import os,sys,urllib.request; r=urllib.request.urlopen('http://127.0.0.1:'+os.environ.get('PORT','3002')+'/', timeout=4); sys.exit(0 if r.status==200 else 1)"]
       interval: 15s
       timeout: 5s
       retries: 10

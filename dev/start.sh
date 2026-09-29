@@ -76,4 +76,4 @@ echo -e "${GREEN}✓ Everything is ready! Starting dev server...${NC}"
 echo -e "${GREEN}==================================================${NC}"
 echo ""
 
-poetry run uvicorn app.main:app --host 0.0.0.0 --port 54110 --reload
+poetry run uvicorn app.main:app --host 0.0.0.0 --port 3002 --reload

@@ -1,6 +1,6 @@
 # iTaxEasy APK backend (FastAPI)
-# Runs the same way as prod (pm2 -> poetry run uvicorn app.main:app --port 54110 --workers 2),
-# with all dependencies installed inside the image.
+# Runs like prod (uvicorn app.main:app with $WORKERS workers) on $PORT (default 3002; the
+# production server sets PORT=54110 in .env), with all dependencies installed inside the image.
 
 # Stage 1: install the locked production dependencies into an in-project venv
 FROM python:3.12-slim AS dependencies
@@ -23,7 +23,7 @@ FROM python:3.12-slim AS runner
 ENV PYTHONUNBUFFERED=1 \
   PYTHONDONTWRITEBYTECODE=1 \
   PATH="/app/.venv/bin:$PATH" \
-  PORT=54110 \
+  PORT=3002 \
   WORKERS=2
 
 WORKDIR /app
@@ -33,6 +33,6 @@ COPY . .
 # Precompile once here, so the read-only container never needs to write .pyc files
 RUN python -m compileall -q app alembic
 
-EXPOSE 54110
+EXPOSE 3002
 
 CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT} --workers ${WORKERS}"]

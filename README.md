@@ -42,7 +42,7 @@ itaxeasy-apk-backend/
 
 ## ⚡ Quick Start
 
-You can spin up the local development database, run the async schema migrations, and launch the hot-reloading FastAPI application on port `54110` with a single command!
+You can spin up the local development database, run the async schema migrations, and launch the hot-reloading FastAPI application on port `3002` with a single command!
 
 ### 1. Launch Dev Environment
 Run the start automation script from the project root:
@@ -52,8 +52,8 @@ Run the start automation script from the project root:
 
 ### 2. View Swagger API Docs
 Once started, go to your browser and access:
-* **Swagger UI Docs:** [http://localhost:54110/docs](http://localhost:54110/docs)
-* **ReDoc Docs:** [http://localhost:54110/redoc](http://localhost:54110/redoc)
+* **Swagger UI Docs:** [http://localhost:3002/docs](http://localhost:3002/docs)
+* **ReDoc Docs:** [http://localhost:3002/redoc](http://localhost:3002/redoc)
 
 ### 3. Stop Environment
 To stop the database and Redis services:
@@ -72,7 +72,7 @@ To stop the database and Redis services:
 
 The API runs in Docker with all dependencies installed inside the image. It uses Python 3.12
 and the locked Poetry dependencies, and is started with `uvicorn app.main:app` on `PORT`
-(default 54110) with `WORKERS` (default 2), the same as the PM2 deploy. It uses the Postgres on
+(default 3002) with `WORKERS` (default 2), like the PM2 deploy. It uses the Postgres on
 the host machine, not a container.
 
 - **Database:** `itaxeasy_apk`, login `itaxeasy_apk_user`. The naming follows the itaxeasy
@@ -88,11 +88,12 @@ the host machine, not a container.
 
 | Server | Service | Port | Address | Set by |
 |---|---|---|---|---|
-| Local (Docker Desktop) | APK API (`itaxeasy-apk-api`) | **54110** | `http://localhost:54110` (docs at `/docs`) | `PORT` in `.env` |
-| server1 (`192.168.1.3`) | APK API (`itaxeasy-apk-api`) | **54110** | `http://192.168.1.3:54110` | `PORT` in `.env` |
-| Production | APK API | **54110** | nginx `apk.itaxeasy.com` → `127.0.0.1:54110` | `PORT` in `.env` |
+| Local (Docker Desktop) | APK API (`itaxeasy-apk-api`) | **3002** | `http://localhost:3002` (docs at `/docs`) | default (or `PORT` in `.env`) |
+| server1 (`192.168.1.3`) | APK API (`itaxeasy-apk-api`) | **3002** | `http://192.168.1.3:3002` (docs at `/docs`) | `PORT=3002` in `.env` |
+| Production | APK API | **54110** | nginx `apk.itaxeasy.com` → `127.0.0.1:54110` | `PORT=54110` in `.env` |
 
-`docker ps` shows `0.0.0.0:54110->54110/tcp` for `itaxeasy-apk-api`.
+`docker ps` shows `0.0.0.0:3002->3002/tcp` for `itaxeasy-apk-api` (server1 / local); on server1 it sits next to the
+itaxeasy frontend (3000) and backend (3001).
 
 ### Run locally (Docker Desktop)
 
@@ -128,13 +129,13 @@ sudo -u postgres psql -c "SELECT pg_reload_conf()"
 cp -p .env .env.bak-docker
 sed -i -E 's#^DATABASE_URL=postgresql://[^:]+:#DATABASE_URL=postgresql://itaxeasy_apk_user:#' .env
 sed -i 's#@localhost:5432/#@host.docker.internal:5432/#' .env
-grep -q '^PORT=' .env || echo 'PORT=54110' >> .env
+sed -i '/^PORT=/d' .env; echo 'PORT=3002' >> .env   # production: PORT=54110 (nginx upstream)
 ```
 
 | Variable | Value |
 |---|---|
 | `DATABASE_URL` | `postgresql://itaxeasy_apk_user:<password>@host.docker.internal:5432/itaxeasy_apk` |
-| `PORT` | `54110` |
+| `PORT` | `3002` (server1) / `54110` (production) |
 | `ENVIRONMENT` | `production` |
 | `TEST_OTP_ENABLED` | `false` in production. When `true`, the listed test phones log in with a fixed code and no SMS. |
 
@@ -153,7 +154,7 @@ docker compose -f docker-compose.prod.yml up -d --force-recreate
 
 ```bash
 docker ps --filter name=itaxeasy-apk --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
-curl -s http://127.0.0.1:54110/; echo                  # {"status":"healthy"}
+curl -s http://127.0.0.1:3002/; echo                   # {"status":"healthy"} (production: :54110)
 docker exec itaxeasy-apk-api sh -c 'touch /app/x 2>&1'  # "Read-only file system"
 ```
 

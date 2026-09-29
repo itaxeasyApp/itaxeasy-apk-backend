@@ -1,7 +1,7 @@
 # iTaxEasy APK backend in Docker on your machine (Docker Desktop), using the Postgres
 # running on the host machine.
 #
-#   docker compose up -d --build     # build + start  -> http://localhost:54110 (docs at /docs)
+#   docker compose up -d --build     # build + start  -> http://localhost:3002 (docs at /docs)
 #   docker compose logs -f api       # follow logs
 #   docker compose down              # stop
 #
@@ -39,13 +39,13 @@ services:
       - |
         H="$$(python -c "import socket; print(socket.getaddrinfo('host.docker.internal', None, socket.AF_INET)[0][4][0])")"
         export DATABASE_URL="$$(printf '%s' "$$DATABASE_URL" | sed -e "s#@localhost:#@$$H:#" -e "s#@127\.0\.0\.1:#@$$H:#")"
-        exec uvicorn app.main:app --host 0.0.0.0 --port "$${PORT:-54110}" --workers "$${WORKERS:-2}"
+        exec uvicorn app.main:app --host 0.0.0.0 --port "$${PORT:-3002}" --workers "$${WORKERS:-2}"
 
     ports:
-      - "${PORT:-54110}:${PORT:-54110}"
+      - "${PORT:-3002}:${PORT:-3002}"
 
     healthcheck:
-      test: ["CMD", "python", "-c", "import os,sys,urllib.request; r=urllib.request.urlopen('http://127.0.0.1:'+os.environ.get('PORT','54110')+'/', timeout=4); sys.exit(0 if r.status==200 else 1)"]
+      test: ["CMD", "python", "-c", "import os,sys,urllib.request; r=urllib.request.urlopen('http://127.0.0.1:'+os.environ.get('PORT','3002')+'/', timeout=4); sys.exit(0 if r.status==200 else 1)"]
       interval: 15s
       timeout: 5s
       retries: 10
