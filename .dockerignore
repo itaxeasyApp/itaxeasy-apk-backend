@@ -1,0 +1,32 @@
+# Local virtualenv / caches (dependencies are installed inside the image)
+.venv
+__pycache__
+*.py[cod]
+.pytest_cache
+.ruff_cache
+*.egg-info
+
+# Secrets: env is injected at runtime (compose env_file), never baked into the image
+.env
+.env.*
+*service-account*.json
+*serviceAccount*.json
+firebase-*.json
+
+# Not needed at runtime
+tests
+conftest.py
+dev
+dev_start.sh
+dev_stop.sh
+scripts
+docker-compose*.yml
+README.md
+
+# Git / editor / OS
+.git
+.github
+.gitignore
+.vscode
+.idea
+.DS_Store

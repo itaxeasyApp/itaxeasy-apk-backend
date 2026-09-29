@@ -101,7 +101,7 @@ fi
 
 echo -e "${YELLOW}Waiting for PostgreSQL to be healthy...${NC}"
 for i in {1..30}; do
-    if docker exec "$PG_CONTAINER" pg_isready -U postgres &> /dev/null; then
+    if docker exec "$PG_CONTAINER" pg_isready -U itaxeasy_apk_user -d itaxeasy_apk &> /dev/null; then
         echo -e "${GREEN}✓ PostgreSQL is ready${NC}"
         break
     fi

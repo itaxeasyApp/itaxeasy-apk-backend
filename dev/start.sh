@@ -54,7 +54,7 @@ fi
 
 # Wait for database to accept connections
 echo -e "${YELLOW}Waiting for PostgreSQL to be healthy...${NC}"
-until docker exec itaxeasy-apk-postgres pg_isready -U postgres &> /dev/null; do
+until docker exec itaxeasy-apk-postgres pg_isready -U itaxeasy_apk_user -d itaxeasy_apk &> /dev/null; do
     echo -n "."
     sleep 1
 done

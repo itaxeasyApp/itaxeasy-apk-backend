@@ -61,6 +61,113 @@ To stop the database and Redis services:
 ./dev/stop.sh
 ```
 
+> The dev Postgres (`docker-compose.dev.yml`) now uses the login `itaxeasy_apk_user` and the
+> database `itaxeasy_apk`. An existing dev volume still has the old `postgres` / `itaxeasy`
+> ones: recreate it with `docker compose -f docker-compose.dev.yml down -v`, which deletes the dev
+> data, then run `./dev/start.sh`.
+
+---
+
+## 🐳 Docker Setup
+
+The API runs in Docker with all dependencies installed inside the image. It uses Python 3.12
+and the locked Poetry dependencies, and is started with `uvicorn app.main:app` on `PORT`
+(default 54110) with `WORKERS` (default 2), the same as the PM2 deploy. It uses the Postgres on
+the host machine, not a container.
+
+- **Database:** `itaxeasy_apk`, login `itaxeasy_apk_user`. The naming follows the itaxeasy
+  convention: database `itaxeasy_<name>`, login `<database>_user`.
+- **Env:** everything comes from `.env` via `env_file`, never baked into the image. The Firebase
+  service-account JSON files are excluded from the image, because the code doesn't use them.
+- **Files:** the container filesystem is read-only (`read_only: true`); the API stores no files.
+  Uploaded Form 16 PDFs go straight to the OCR service. Files larger than 1 MB are buffered in the
+  container's own temp folder `/tmp`, which lives in memory (`tmpfs`) and is cleared on restart.
+- **Redis:** not used by the app code.
+
+### Ports
+
+| Server | Service | Port | Address | Set by |
+|---|---|---|---|---|
+| Local (Docker Desktop) | APK API (`itaxeasy-apk-api`) | **54110** | `http://localhost:54110` (docs at `/docs`) | `PORT` in `.env` |
+| server1 (`192.168.1.3`) | APK API (`itaxeasy-apk-api`) | **54110** | `http://192.168.1.3:54110` | `PORT` in `.env` |
+| Production | APK API | **54110** | nginx `apk.itaxeasy.com` → `127.0.0.1:54110` | `PORT` in `.env` |
+
+`docker ps` shows `0.0.0.0:54110->54110/tcp` for `itaxeasy-apk-api`.
+
+### Run locally (Docker Desktop)
+
+`docker-compose.yml` points a `localhost` host in `DATABASE_URL` at the host machine.
+```bash
+docker compose up -d --build
+docker compose logs -f api
+docker compose down
+```
+Run migrations with the same host swap, because `run` bypasses the container's start command:
+```bash
+docker compose run --rm api sh -c 'H=$(python -c "import socket; print(socket.getaddrinfo(\"host.docker.internal\", None, socket.AF_INET)[0][4][0])"); export DATABASE_URL="$(printf %s "$DATABASE_URL" | sed "s#@localhost:#@$H:#")"; alembic upgrade head'
+```
+
+### Production (Ubuntu server)
+
+Use `docker-compose.prod.yml`. The container joins the shared Docker network `itaxeasy`, the same
+one as the itaxeasy frontend and backend, and publishes `PORT`. It reaches the server's Postgres at
+`host.docker.internal`, which is the server's address on that network (`172.30.10.1`).
+
+**One-time server setup.** The `itaxeasy` network, the Docker boot setting and the `ufw` rule for
+`172.30.10.0/24` are created once by the itaxeasy backend setup. See its README, *Production →
+One-time server setup*. The APK backend additionally needs:
+
+```bash
+# 1. The DB login (renamed itaxapk -> itaxeasy_apk_user) may connect from the Docker network
+HBA=/etc/postgresql/18/main/pg_hba.conf
+sudo cp -p $HBA $HBA.bak-apk
+echo 'host    itaxeasy_apk    itaxeasy_apk_user    172.30.10.0/24    scram-sha-256' | sudo tee -a $HBA
+sudo -u postgres psql -c "SELECT pg_reload_conf()"
+
+# 2. .env in the project folder
+cp -p .env .env.bak-docker
+sed -i -E 's#^DATABASE_URL=postgresql://[^:]+:#DATABASE_URL=postgresql://itaxeasy_apk_user:#' .env
+sed -i 's#@localhost:5432/#@host.docker.internal:5432/#' .env
+grep -q '^PORT=' .env || echo 'PORT=54110' >> .env
+```
+
+| Variable | Value |
+|---|---|
+| `DATABASE_URL` | `postgresql://itaxeasy_apk_user:<password>@host.docker.internal:5432/itaxeasy_apk` |
+| `PORT` | `54110` |
+| `ENVIRONMENT` | `production` |
+| `TEST_OTP_ENABLED` | `false` in production. When `true`, the listed test phones log in with a fixed code and no SMS. |
+
+**Deploy / update**
+
+```bash
+git fetch origin +refs/heads/add-docker-setup:refs/remotes/origin/add-docker-setup
+git checkout -B add-docker-setup origin/add-docker-setup
+docker compose -f docker-compose.prod.yml build
+docker compose -f docker-compose.prod.yml run --rm api alembic current         # read-only check
+docker compose -f docker-compose.prod.yml run --rm api alembic upgrade head    # only if migrations are pending
+docker compose -f docker-compose.prod.yml up -d --force-recreate
+```
+
+**Check**
+
+```bash
+docker ps --filter name=itaxeasy-apk --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
+curl -s http://127.0.0.1:54110/; echo                  # {"status":"healthy"}
+docker exec itaxeasy-apk-api sh -c 'touch /app/x 2>&1'  # "Read-only file system"
+```
+
+**Switching over from PM2** (production; a few seconds of downtime):
+```bash
+pm2 stop itaxeasy-apk-backend                      # frees port 54110
+docker compose -f docker-compose.prod.yml up -d
+curl -fsS http://127.0.0.1:54110/                 # rollback: docker compose -f docker-compose.prod.yml down && pm2 start itaxeasy-apk-backend
+pm2 delete itaxeasy-apk-backend && pm2 save        # once stable, so PM2 doesn't restart it on reboot
+```
+
+**Auto-start on reboot:** `restart: always`, plus Docker enabled on boot
+(`sudo systemctl enable --now docker containerd`).
+
 ---
 
 ## 🛠️ Key Technology Stack

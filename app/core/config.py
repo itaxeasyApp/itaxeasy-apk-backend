@@ -6,7 +6,7 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "local"
 
     # Database
-    DATABASE_URL: str = "postgresql://postgres:postgres@localhost:5432/itaxeasy"
+    DATABASE_URL: str = "postgresql://itaxeasy_apk_user:postgres@localhost:5432/itaxeasy_apk"
 
     # JWT (our own session tokens issued AFTER MSG91 verifies the phone OTP)
     JWT_SECRET: str = "supersecretjwtkeyforitaxeasyapkbackend"

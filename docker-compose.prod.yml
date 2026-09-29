@@ -1,0 +1,56 @@
+# Production (Ubuntu server) — replaces the PM2 process "itaxeasy-apk-backend".
+#
+#   docker compose -f docker-compose.prod.yml build
+#   docker compose -f docker-compose.prod.yml run --rm api alembic current     # read-only check
+#   docker compose -f docker-compose.prod.yml run --rm api alembic upgrade head
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# Networking: the container joins the shared Docker network "itaxeasy" (created once for the
+# itaxeasy frontend/backend: docker network create --subnet 172.30.10.0/24 --gateway
+# 172.30.10.1 itaxeasy) and publishes PORT from .env (default 54110; shown in `docker ps`).
+# It reaches the server's own Postgres at host.docker.internal (= 172.30.10.1), so in .env:
+# DATABASE_URL=postgresql://itaxeasy_apk_user:...@host.docker.internal:5432/itaxeasy_apk
+# and pg_hba.conf must allow itaxeasy_apk_user from 172.30.10.0/24.
+#
+# restart: always -> started again whenever the Docker daemon starts (i.e. on every server
+# reboot, as long as `systemctl enable docker` is set), even after a manual stop.
+
+services:
+  api:
+    build: .
+    image: itaxeasy-apk-backend:latest
+    container_name: itaxeasy-apk-api
+    restart: always
+    ports:
+      - "${PORT:-54110}:${PORT:-54110}"
+    networks:
+      - itaxeasy
+    extra_hosts:
+      # The server itself, as seen from the itaxeasy network (its gateway)
+      - "host.docker.internal:172.30.10.1"
+    env_file:
+      - ./.env
+    # Read-only container filesystem: the API stores no files. Temp files (uploaded
+    # PDFs larger than 1 MB are spooled to disk before being sent to the OCR service)
+    # use the container's own temp folder /tmp (in memory, cleared on restart).
+    read_only: true
+    tmpfs:
+      - /tmp
+    environment:
+      HOME: /tmp # $HOME writes go to the container's temp folder too
+    healthcheck:
+      # GET / returns {"status":"healthy"}
+      test: ["CMD", "python", "-c", "import os,sys,urllib.request; r=urllib.request.urlopen('http://127.0.0.1:'+os.environ.get('PORT','54110')+'/', timeout=4); sys.exit(0 if r.status==200 else 1)"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+networks:
+  itaxeasy:
+    external: true

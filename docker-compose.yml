@@ -1,0 +1,52 @@
+# iTaxEasy APK backend in Docker on your machine (Docker Desktop), using the Postgres
+# running on the host machine.
+#
+#   docker compose up -d --build     # build + start  -> http://localhost:54110 (docs at /docs)
+#   docker compose logs -f api       # follow logs
+#   docker compose down              # stop
+#
+# All env vars come from ./.env (env_file). A localhost host in DATABASE_URL is pointed at
+# the host machine (host.docker.internal) when the container starts.
+# (docker-compose.dev.yml is separate: it runs a throwaway Postgres + Redis for dev.)
+
+services:
+  api:
+    build:
+      context: .
+    image: itaxeasy-apk-backend:local
+    container_name: itaxeasy-apk-api
+    restart: unless-stopped
+
+    env_file:
+      - ./.env
+    environment:
+      HOME: /tmp # $HOME writes go to the container's temp folder too
+
+    # Read-only container filesystem: the API stores no files; temp files use /tmp (in memory)
+    read_only: true
+    tmpfs:
+      - /tmp
+
+    # Reach Postgres running on the host machine
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+    # Keep DATABASE_URL from .env, only swap its localhost host for the host machine's IPv4
+    # (Docker Desktop can't route the IPv6 host.docker.internal address)
+    command:
+      - sh
+      - -c
+      - |
+        H="$$(python -c "import socket; print(socket.getaddrinfo('host.docker.internal', None, socket.AF_INET)[0][4][0])")"
+        export DATABASE_URL="$$(printf '%s' "$$DATABASE_URL" | sed -e "s#@localhost:#@$$H:#" -e "s#@127\.0\.0\.1:#@$$H:#")"
+        exec uvicorn app.main:app --host 0.0.0.0 --port "$${PORT:-54110}" --workers "$${WORKERS:-2}"
+
+    ports:
+      - "${PORT:-54110}:${PORT:-54110}"
+
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os,sys,urllib.request; r=urllib.request.urlopen('http://127.0.0.1:'+os.environ.get('PORT','54110')+'/', timeout=4); sys.exit(0 if r.status==200 else 1)"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
